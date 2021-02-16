@@ -1,0 +1,419 @@
+///////////////////General.cs////////////////////////
+using UnityEngine;
+
+public class General : MonoBehaviour
+{
+    public int Mark = 5;
+    private float Timer = 0;
+    public GameObject Canvas;
+    private static GameObject Score;
+    private static GameObject[] Walls;
+    private static bool GameOver = false;
+
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        GameOver = false;
+        Walls = GameObject.FindGameObjectsWithTag("Wall");
+
+
+        float high = Camera.main.orthographicSize;
+        float asp = Camera.main.aspect;
+
+        for (int i = 0; i < Walls.Length; i++)
+        {
+            Walls[i].transform.localScale = new Vector3(1, high * 2, 0);
+        }
+        Walls[0].transform.position = new Vector3(high * asp - (Walls[1].transform.localScale.x / 2), 0, 0);
+        Walls[1].transform.position = new Vector3(-high * asp + (Walls[1].transform.localScale.x / 2), 0, 0);
+        ///////////////
+        float CanvasH = Canvas.transform.position.y;
+        float CanvasW = Canvas.transform.position.x;
+        if(GameObject.FindGameObjectWithTag("Score"))
+        Score = GameObject.FindGameObjectWithTag("Score");
+        else if(GameObject.FindGameObjectWithTag("HighScore"))
+        Score = GameObject.FindGameObjectWithTag("HighScore");
+
+        Score.transform.position = new Vector3(CanvasW / 3, CanvasH * 1.75f, 0);
+        ////////////////
+        ///
+        GameObject Player = GameObject.FindGameObjectWithTag("Player");
+        Player.transform.position = new Vector3(Walls[1].transform.position.x + Walls[1].transform.localScale.x, -high + Player.transform.localScale.y, 0);
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+
+        Timer += Time.deltaTime;
+
+        if (Timer > Mark)
+        {
+            Mark += 10;
+            SpeedUp();
+        }
+
+        if (GameOver)
+        {
+            Reset();
+            Player.Reset();
+            Coins.Reset();
+            Spikes.Reset();
+        }
+    }
+
+    public static GameObject ReturnWalls(int i)
+    {
+        return Walls[i];
+    }
+
+    public static GameObject ReturnScore()
+    {
+        return Score;
+    }
+
+    public static void NowGameOver()
+    {
+        GameOver = true;
+
+    }
+
+    public static bool IsGameOver()
+    {
+        return GameOver;
+    }
+
+    private void SpeedUp()
+    {
+        Player.SpeedUp();
+        Coins.SpeedUp();
+        Spikes.SpeedUp();
+    }
+
+    public void Reset()
+    {
+        Timer = 0;
+    }
+}
+
+////////////////////////////////////////////////////////////////////
+
+////////////////////Player.cs//////////////////////////////////
+using UnityEngine;
+
+
+public class Player : MonoBehaviour
+{
+    private static int Spd = 10;
+    private bool GoRight;
+    private bool CanMove;
+    // Start is called before the first frame update
+    void Start()
+    {
+        GoRight = false;
+        CanMove = false;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        float high = Camera.main.orthographicSize;
+
+        if (General.IsGameOver())
+            return;
+
+        if (Input.GetButtonDown("Fire1") && CanMove)
+            GoRight = !GoRight;
+
+
+        //Right wall is 0, Left is 1
+        if (GoRight)
+        {
+            if ((transform.position.x + transform.localScale.x / 2) < (General.ReturnWalls(0).transform.position.x - General.ReturnWalls(0).transform.localScale.x / 2))
+            {
+                CanMove = false;
+                transform.Translate(Spd * Time.deltaTime, 0, 0, Space.World);
+                transform.Rotate(0, 0, Spd * 2, Space.World);
+            }
+            else
+            {
+                CanMove = true;
+                transform.rotation = Quaternion.Euler(0, 0, 0);
+                transform.position = new Vector3(General.ReturnWalls(0).transform.position.x - General.ReturnWalls(0).transform.localScale.x, -high + transform.localScale.y, 0);
+            }
+
+        }
+        else
+        {
+            if ((transform.position.x - transform.localScale.x / 2) > (General.ReturnWalls(1).transform.position.x + General.ReturnWalls(1).transform.localScale.x / 2))
+            {
+                CanMove = false;
+                transform.Translate(-Spd * Time.deltaTime, 0, 0, Space.World);
+                transform.Rotate(0, 0, -Spd * 2, Space.World);
+            }
+            else
+            {
+                CanMove = true;
+                transform.rotation = Quaternion.Euler(0, 0, 0);
+                transform.position = new Vector3(General.ReturnWalls(1).transform.position.x + General.ReturnWalls(1).transform.localScale.x, -high + transform.localScale.y, 0);
+            }
+
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.tag == "Coins")
+        {
+            Destroy(other.gameObject);
+            General.ReturnScore().GetComponent<ScoreText>().Add();
+
+            return;
+        }
+        if (other.gameObject.tag == "Spikes")
+        {
+
+            General.NowGameOver();
+
+
+            return;
+        }
+    }
+
+    public static void SpeedUp()
+    {
+        Spd += 2;
+        print("Player Speed:" + "" + Spd);
+    }
+
+    public static void Reset()
+    {
+        Spd = 10;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////Spawner.cs/////////////////////////////////////
+using UnityEngine;
+
+public class Spawner : MonoBehaviour
+{
+    public GameObject Spawn;
+    public int min = 1;
+    public int max = 5;
+    private float Timer;
+    // Start is called before the first frame update
+    void Start()
+    {
+        Instantiate(Spawn, transform.position, transform.rotation);
+        Timer = Random.Range(min, max);
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (General.IsGameOver())
+            return;
+
+        Timer -= Time.deltaTime;
+        if (Timer < 0f)
+        {
+            Instantiate(Spawn, transform.position, transform.rotation);
+            Timer = Random.Range(min, max);
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////Coins.cs///////////////////////////////////////////
+using UnityEngine;
+
+public class Coins : MonoBehaviour
+{
+    private int Spd;
+    private static int min = 2;
+    private static int max = 10;
+    // Start is called before the first frame update
+    void Start()
+    {
+        Spd = Random.Range(min, max);
+        float asp = Camera.main.aspect;
+        float high = Camera.main.orthographicSize;
+        float ran = Random.Range(-asp * high + 1, asp * high - 1);
+        transform.position = new Vector3(ran, high + 3, 0);
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (General.IsGameOver())
+            return;
+
+        float asp = Camera.main.aspect;
+        float high = Camera.main.orthographicSize;
+
+        if (transform.position.y < -high)
+            Destroy(this.gameObject);
+
+        transform.Translate(Vector3.down * Spd * Time.deltaTime);
+    }
+
+    public static void SpeedUp()
+    {
+        min++;
+        max++;
+        
+    }
+    public static void Reset()
+    {
+        min = 2;
+        max = 10;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////Spikes.cs//////////////////////////////////////////////////////////////
+using UnityEngine;
+
+public class Spikes : MonoBehaviour
+{
+    private int Spd;
+    private static int min = 2;
+    private static int max = 10;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+        Spd = Random.Range(min, max);
+        float asp = Camera.main.aspect;
+        float high = Camera.main.orthographicSize;
+        float Side = Random.Range(0, 4);
+        int Width = Random.Range(4, 7);
+        transform.localScale = new Vector3(1, 1, 1);
+
+        if (Side > 1)
+        {
+            transform.position = new Vector3(-asp * high + asp, high + 3, 0);
+            transform.localScale = new Vector3(Width, 1, 1);
+        }
+
+        else
+        {
+            transform.position = new Vector3(asp * high - asp, high + 3, 0);
+            transform.localScale = new Vector3(Width, 1, 1);
+        }
+
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        if (General.IsGameOver())
+            return;
+
+        float asp = Camera.main.aspect;
+        float high = Camera.main.orthographicSize;
+
+        if (transform.position.y < -high)
+            Destroy(this.gameObject);
+
+        transform.Translate(Vector3.down * Spd * Time.deltaTime);
+    }
+
+    public static void SpeedUp()
+    {
+        min++;
+        max++;
+        
+    }
+
+    public static void Reset()
+    {
+        min = 2;
+        max = 10;
+    }
+}
+
+///////////////////////////////////////////////////////////////////
+
+/////////////////GoToSceen.cs///////////////////*yes i know it’s spelt scene 
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using UnityEngine;
+
+public class GoToSceen : MonoBehaviour
+{
+    public Button MYButton;
+    public string GoTo;
+    // Start is called before the first frame update
+    void Start()
+    {
+        Button btn = MYButton.GetComponent<Button>();
+        btn.onClick.AddListener(TaskOnClick);
+    }
+
+    // Update is called once per frame
+    void TaskOnClick()
+    {
+        SceneManager.LoadScene(GoTo);
+
+    }
+    public void TurnOff()
+    {
+
+        this.gameObject.SetActive(false);
+    }
+    public void TurnOn()
+    {
+
+        this.gameObject.SetActive(true);
+    }
+
+}
+
+////////////////////////////////////////////////////////
+
+//////////Sprites.cs//////////////////////*went unused 
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Sprites : MonoBehaviour
+{
+    public GameObject obj;
+    public bool AddH=true;
+    // Start is called before the first frame update
+    void Start()
+    {
+        float height = GetComponent<SpriteRenderer>().bounds.extents.y;
+        if(AddH)
+            transform.position = new Vector3(obj.transform.position.x, obj.transform.position.y + height, obj.transform.position.z);
+        
+        else
+            transform.position = new Vector3(obj.transform.position.x, obj.transform.position.y, obj.transform.position.z);
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        float height = GetComponent<SpriteRenderer>().bounds.extents.y;
+       
+        if (AddH)
+            transform.position = new Vector3(obj.transform.position.x, obj.transform.position.y + height, obj.transform.position.z);
+
+        else
+            transform.position = new Vector3(obj.transform.position.x, obj.transform.position.y, obj.transform.position.z);
+    }
+}
+
+////////////////////////////////////////////
