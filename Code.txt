@@ -1,3 +1,8 @@
+////////////Link to GitHub Page///////////////////////////
+https://github.com/AlexisLaparra/JustClickLeft-CS3 
+
+
+
 ///////////////////General.cs////////////////////////
 using UnityEngine;
 
